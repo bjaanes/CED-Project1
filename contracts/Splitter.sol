@@ -5,6 +5,8 @@ contract Splitter {
     address public bob;
     address public carol;
 
+    mapping (address => uint) public pendingWithdrawls;
+
     function Splitter(address _bob, address _carol) public {
         alice = msg.sender;
         bob = _bob;
@@ -12,16 +14,24 @@ contract Splitter {
     }
 
     function splitEther() public payable returns(uint toBob, uint toCarol) {
-        if (msg.sender != alice) revert();
-        if (msg.value <= 1) revert();
+        require(msg.sender == alice);
+        require(msg.value >= 2);
         
         uint splitToBob = msg.value/2;
         uint splitToCarol = msg.value/2;
 
-        bob.transfer(splitToBob);
-        carol.transfer(splitToCarol);
+        pendingWithdrawls[bob] += splitToBob;
+        pendingWithdrawls[carol] += splitToCarol;
 
         return (splitToBob, splitToCarol);
+    }
+
+    function withdraw() public {
+        require(msg.sender == bob || msg.sender == carol);
+        uint amount = pendingWithdrawls[msg.sender];
+        require(amount > 0);
+        pendingWithdrawls[msg.sender] = 0;
+        msg.sender.transfer(amount);
     }
 
     function kill() public {

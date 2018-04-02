@@ -31,7 +31,11 @@ module.exports = {
 				options: {
 					presets: ['env', 'react', 'es2015', 'stage-0']
 				}
-			}
+			},
+			{
+				test: /\.css$/,
+				use: [ 'style-loader', 'css-loader' ]
+			  }
 		]
 	},
 

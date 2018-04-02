@@ -1,42 +1,51 @@
 pragma solidity ^0.4.17;
 
 contract Splitter {
-    address public alice;
-    address public bob;
-    address public carol;
-
+    address public owner;
     mapping (address => uint) public pendingWithdrawls;
 
-    function Splitter(address _bob, address _carol) public {
-        alice = msg.sender;
-        bob = _bob;
-        carol = _carol;
+    event LogSplitFunds(address indexed sender, address indexed recipient1, address indexed recipient2, uint amount, uint amountToRecipient1, uint amountToRecipient2);
+    event LogWithdrawal(address indexed receiver, uint amount);
+
+    function Splitter() public {
+        owner = msg.sender;
     }
 
-    function splitEther() public payable returns(uint toBob, uint toCarol) {
-        require(msg.sender == alice);
-        require(msg.value >= 2);
-        
-        uint splitToBob = msg.value/2;
-        uint splitToCarol = msg.value/2;
+    modifier onlyOwner() {
+        require(msg.sender == owner);
+        _;
+    }
 
-        pendingWithdrawls[bob] += splitToBob;
-        pendingWithdrawls[carol] += splitToCarol;
+    function splitEther(address recipient1, address recipient2) public payable returns(uint amountToRecipient1, uint amountToRecipient2) {
+        require(msg.value != 0);
+        require(recipient1 != address(0));
+        require(recipient2 != address(0));
 
-        return (splitToBob, splitToCarol);
+        uint half = msg.value / 2;
+        uint remainder = msg.value % 2;
+        uint splitToRecipient1 = half;
+        uint splitToRecipient2 = half;
+
+        pendingWithdrawls[recipient1] += splitToRecipient1;
+        pendingWithdrawls[recipient2] += splitToRecipient2;
+        if (remainder > 0) {
+            pendingWithdrawls[msg.sender] += remainder;
+        }
+
+        LogSplitFunds(msg.sender, recipient1, recipient2, msg.value, splitToRecipient1, splitToRecipient2);
+        return (splitToRecipient1, splitToRecipient2);
     }
 
     function withdraw() public {
-        require(msg.sender == bob || msg.sender == carol);
         uint amount = pendingWithdrawls[msg.sender];
         require(amount > 0);
         pendingWithdrawls[msg.sender] = 0;
+        LogWithdrawal(msg.sender, amount);
         msg.sender.transfer(amount);
     }
 
-    function kill() public {
-        if(msg.sender != alice) revert();
-        selfdestruct(alice);
+    function kill() onlyOwner public {
+        selfdestruct(owner);
     }
     
 }

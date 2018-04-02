@@ -3,9 +3,7 @@ import React from "react";
 import ReactDOM from "react-dom";
 import Web3 from "web3";
 import "./../css/index.css";
-import UserGreeting from "./user_greeting";
 import Split from "./split";
-import Withdraw from "./withdraw";
 
 const promisify = inner =>
   new Promise((resolve, reject) =>
@@ -23,11 +21,8 @@ class App extends React.Component {
     super(props);
     this.state = {
       userAccount: 0x0,
-      aliceBalance: 0,
-      bobBalance: 0,
-      carolBalance: 0,
-      bobOwed: 0,
-      carolOwed: 0
+      userBalance: 0,
+      userOwed: 0
     };
     if (typeof web3 !== "undefined") {
       console.log("Using web3 detected from external source like Metamask");
@@ -40,12 +35,12 @@ class App extends React.Component {
 
     const MyContract = this.web3.eth.contract(
       JSON.parse(
-        '[ { "constant": true, "inputs": [ { "name": "", "type": "address" } ], "name": "pendingWithdrawls", "outputs": [ { "name": "", "type": "uint256" } ], "payable": false, "stateMutability": "view", "type": "function" }, { "constant": true, "inputs": [], "name": "carol", "outputs": [ { "name": "", "type": "address" } ], "payable": false, "stateMutability": "view", "type": "function" }, { "constant": true, "inputs": [], "name": "bob", "outputs": [ { "name": "", "type": "address" } ], "payable": false, "stateMutability": "view", "type": "function" }, { "constant": true, "inputs": [], "name": "alice", "outputs": [ { "name": "", "type": "address" } ], "payable": false, "stateMutability": "view", "type": "function" }, { "inputs": [ { "name": "_bob", "type": "address" }, { "name": "_carol", "type": "address" } ], "payable": false, "stateMutability": "nonpayable", "type": "constructor" }, { "constant": false, "inputs": [], "name": "splitEther", "outputs": [ { "name": "toBob", "type": "uint256" }, { "name": "toCarol", "type": "uint256" } ], "payable": true, "stateMutability": "payable", "type": "function" }, { "constant": false, "inputs": [], "name": "withdraw", "outputs": [], "payable": false, "stateMutability": "nonpayable", "type": "function" }, { "constant": false, "inputs": [], "name": "kill", "outputs": [], "payable": false, "stateMutability": "nonpayable", "type": "function" } ]'
+        '[ { "constant": true, "inputs": [ { "name": "", "type": "address" } ], "name": "pendingWithdrawls", "outputs": [ { "name": "", "type": "uint256" } ], "payable": false, "stateMutability": "view", "type": "function" }, { "constant": true, "inputs": [], "name": "owner", "outputs": [ { "name": "", "type": "address" } ], "payable": false, "stateMutability": "view", "type": "function" }, { "inputs": [], "payable": false, "stateMutability": "nonpayable", "type": "constructor" }, { "anonymous": false, "inputs": [ { "indexed": true, "name": "sender", "type": "address" }, { "indexed": true, "name": "recipient1", "type": "address" }, { "indexed": true, "name": "recipient2", "type": "address" }, { "indexed": false, "name": "amount", "type": "uint256" }, { "indexed": false, "name": "amountToRecipient1", "type": "uint256" }, { "indexed": false, "name": "amountToRecipient2", "type": "uint256" } ], "name": "LogSplitFunds", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "name": "receiver", "type": "address" }, { "indexed": false, "name": "amount", "type": "uint256" } ], "name": "LogWithdrawal", "type": "event" }, { "constant": false, "inputs": [ { "name": "recipient1", "type": "address" }, { "name": "recipient2", "type": "address" } ], "name": "splitEther", "outputs": [ { "name": "amountToRecipient1", "type": "uint256" }, { "name": "amountToRecipient2", "type": "uint256" } ], "payable": true, "stateMutability": "payable", "type": "function" }, { "constant": false, "inputs": [], "name": "withdraw", "outputs": [], "payable": false, "stateMutability": "nonpayable", "type": "function" }, { "constant": false, "inputs": [], "name": "kill", "outputs": [], "payable": false, "stateMutability": "nonpayable", "type": "function" } ]'
       )
     );
 
     this.state.ContractInstance = MyContract.at(
-      "0x60a1a9c5bd4edf0c1a77cd3c0e4c759bb2966314"
+      "0x16420fd34b44d91217871bd6088cdb09db19bdb3"
     );
 
     const filter = web3.eth.filter("latest");
@@ -53,29 +48,14 @@ class App extends React.Component {
       if (err) {
         console.log(`Watch error: ${err}`);
       } else {
-        web3.eth.getBalance(this.state.alice, (err, bal) => {
-          this.setState({ aliceBalance: bal });
-        });
-
-        web3.eth.getBalance(this.state.bob, (err, bal) => {
-          this.setState({ bobBalance: bal });
-        });
-
-        web3.eth.getBalance(this.state.carol, (err, bal) => {
-          this.setState({ carolBalance: bal });
+        web3.eth.getBalance(this.state.userAccount, (err, bal) => {
+          this.setState({ userBalance: bal });
         });
 
         this.state.ContractInstance.pendingWithdrawls(
-          this.state.bob,
-          (err, _bobOwed) => {
-            this.setState({ bobOwed: _bobOwed });
-          }
-        );
-
-        this.state.ContractInstance.pendingWithdrawls(
-          this.state.carol,
-          (err, _carolOwed) => {
-            this.setState({ carolOwed: _carolOwed });
+          this.state.userAccount,
+          (err, _userOwed) => {
+            this.setState({ userOwed: _userOwed });
           }
         );
       }
@@ -91,57 +71,25 @@ class App extends React.Component {
   }
 
   async updateState() {
-    if (!this.state.alice) {
-      this.setState({
-        alice: await promisify(cb => this.state.ContractInstance.alice(cb))
-      });
-    }
-    if (!this.state.bob) {
-      this.setState({
-        bob: await promisify(cb => this.state.ContractInstance.bob(cb))
-      });
-    }
-    if (!this.state.carol) {
-      this.setState({
-        carol: await promisify(cb => this.state.ContractInstance.carol(cb))
-      });
-    }
-
-    this.setState({
-      aliceBalance: await promisify(cb =>
-        this.web3.eth.getBalance(this.state.alice, cb)
-      )
-    });
-    this.setState({
-      bobBalance: await promisify(cb =>
-        this.web3.eth.getBalance(this.state.bob, cb)
-      )
-    });
-    this.setState({
-      carolBalance: await promisify(cb =>
-        this.web3.eth.getBalance(this.state.carol, cb)
-      )
-    });
-
-    this.setState({
-      bobOwed: await promisify(cb =>
-        this.state.ContractInstance.pendingWithdrawls(this.state.bob, cb)
-      )
-    });
-    this.setState({
-      carolOwed: await promisify(cb =>
-        this.state.ContractInstance.pendingWithdrawls(this.state.carol, cb)
-      )
-    });
-
-    console.log(this.state);
-
+    console.log(this.web3.eth.accounts[0]);
     this.setState({ userAccount: this.web3.eth.accounts[0] });
+
+    this.setState({
+      userBalance: await promisify(cb =>
+        this.web3.eth.getBalance(this.web3.eth.accounts[0], cb)
+      )
+    });
+
+    this.setState({
+      userOwed: await promisify(cb =>
+        this.state.ContractInstance.pendingWithdrawls(this.web3.eth.accounts[0], cb)
+      )
+    });
   }
 
-  split(ether) {
-    this.state.ContractInstance.splitEther(
-      { from: this.state.alice, value: this.web3.toWei(ether) },
+  split(recipient1, recipient2, ether) {
+    this.state.ContractInstance.splitEther(recipient1, recipient2,
+      { from: this.state.userAccount, value: this.web3.toWei(ether) },
       (err, txHash) => {
         console.log(err);
         console.log(txHash);
@@ -149,8 +97,8 @@ class App extends React.Component {
     );
   }
 
-  withdraw(account) {
-    this.state.ContractInstance.withdraw({ from: account }, (err, txHash) => {
+  withdraw() {
+    this.state.ContractInstance.withdraw({ from: this.state.userAccount }, (err, txHash) => {
       console.log(err);
       console.log(txHash);
     });
@@ -158,42 +106,20 @@ class App extends React.Component {
 
   render() {
     return (
-      <div>
-        <UserGreeting
-          user={this.state.userAccount}
-          alice={this.state.alice}
-          bob={this.state.bob}
-          carol={this.state.carol}
-        />
+      <div className="splitter-app">
+        <h1>Welcome to the Ether Splitter!</h1>
+        <h2>You can split ether between 2 accounts or withdraw any amount which you are owed (any Ether split to you)</h2>
         <div>
-          Alice's Balance:{" "}
-          {this.web3.fromWei(this.state.aliceBalance).toString(10)}
+          Your Balance: {this.web3.fromWei(this.state.userBalance).toString(10)} Ether
         </div>
         <div>
-          Bob' Balance: {this.web3.fromWei(this.state.bobBalance).toString(10)}
+          You are owed: {this.web3.fromWei(this.state.userOwed).toString(10)}
         </div>
-        <div>
-          Carol's Balance:{" "}
-          {this.web3.fromWei(this.state.carolBalance).toString(10)}
-        </div>
-        <div>
-          Owed to Carol: {this.web3.fromWei(this.state.carolOwed).toString(10)}
-        </div>
-        <div>
-          Owed to Bob: {this.web3.fromWei(this.state.bobOwed).toString(10)}
-        </div>
+        <button onClick={this.withdraw}>Withdraw {this.web3.fromWei(this.state.userOwed).toString(10)}</button>
+        <br />
+        <h2>Split up some of your Ether</h2>
         <Split
-          user={this.state.userAccount}
-          alice={this.state.alice}
           onClick={this.split}
-        />
-        <Withdraw
-          user={this.state.userAccount}
-          bob={this.state.bob}
-          carol={this.state.carol}
-          bobOwed={this.web3.fromWei(this.state.bobOwed).toString(10)}
-          carolOwed={this.web3.fromWei(this.state.carolOwed).toString(10)}
-          onClick={this.withdraw}
         />
       </div>
     );
